@@ -10,10 +10,8 @@ import qualified Data.Attoparsec.Text as A
 import qualified Data.Map as M
 import Control.Applicative
 import Control.Monad.IO.Class
+import Control.Monad
 import Shelly
-
-isEndOfLine :: Char -> Bool
-isEndOfLine x = x == '\n'
 
 newtype Sha = Sha {sha :: T.Text}
   deriving (Show, Eq, Ord)
@@ -45,22 +43,16 @@ singleSha       = Sha <$> singleWord
 findNewSha :: M.Map Sha Sha -> Tag -> Sh (Tag, Either Sha Sha)
 findNewSha m t  = do
     c <- run "git" ["rev-parse", gitTag t <> "^{commit}"]
-    oSha <- either error return (A.parseOnly singleSha c)
-    return (t, maybeToRight oSha (M.lookup oSha m))
+    oldSha <- either error return (A.parseOnly singleSha c)
+    return (t, maybeToRight oldSha (M.lookup oldSha m))
 
+-- | Delete old tag and create new /not/ annotated tag with the same name.
 rewriteTags :: Tag -> Either Sha Sha -> Sh ()
 rewriteTags t (Right newSha) = do
-    liftIO . putStrLn $ "Move tag " ++ show t ++ " to " ++ show newSha
+    liftIO . putStrLn $ "Move " ++ show t ++ " to " ++ show newSha
     run_ "git" ["tag", "-d", gitTag t]
     run_ "git" ["tag", gitTag t, sha newSha]
-rewriteTags t (Left oldSha) = liftIO . putStrLn $ "  => Tag " ++ show t ++ " remains at " ++ show oldSha
-
-{-addNewTags :: Sh M.Map Sha Sha -> M.Map Tag Sha -> T.Text -> Sh (M.Map Tag Sha)
-addNewTags mh zm tx = do
-    t  <- either error (liftIO . return) (A.parseOnly (Tag <$> singleWord) tx)
-    nh <- findNewSha mh t
-    return (M.insert t nh zm)
--}
+rewriteTags t (Left oldSha) = liftIO . putStrLn $ "  => " ++ show t ++ " remains at " ++ show oldSha
 
 buildTagMap :: [Tag] -> T.Text -> [Tag]
 buildTagMap zm tx = either error (: zm)
@@ -71,22 +63,7 @@ main    = do
     t <- T.readFile "commit-map.txt"
     commitMap <- either error return (A.parseOnly parseCommits t)
     shelly $ do
-      tagMap <- runFoldLines empty buildTagMap "git" ["tag", "-l"] >>=
-              fmap M.fromList . mapM (findNewSha commitMap)
-      --uncurry rewriteTags $ head . filter (\(x, _) -> x == Tag "v133") $ M.toList tagMap
-      mapM_ (uncurry rewriteTags) (M.toList tagMap)
-      --let (missedTags, newTags) = (rights &&& lefts) tagMap
-      --liftIO $ print tagMap
-      {-liftIO $ do
-        print "Remapped:"
-        mapM_ (\(t, Right r) -> putStrLn $ "Tag " ++ show t ++ " -> " ++ show r)
-          . M.toList . M.filter isRight
-          $ tagMap
-        print "Missed:"
-        mapM_ (\(t, Left r) -> putStrLn $ "Tag " ++ show t ++ " remains at " ++ show r)
-          . M.toList . M.filter isLeft
-          $ tagMap-}
-      --liftIO $ print missedTags
-    --mapM_ print (M.toList m)
+      tags    <- runFoldLines empty buildTagMap "git" ["tag", "-l"]
+      mapM_ (uncurry rewriteTags <=< findNewSha commitMap) tags
       return ()
 
