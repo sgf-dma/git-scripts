@@ -46,13 +46,16 @@ findNewSha m t  = do
     oldSha <- either error return (A.parseOnly singleSha c)
     return (t, maybeToRight oldSha (M.lookup oldSha m))
 
--- | Delete old tag and create new /not/ annotated tag with the same name.
+-- | Delete old tag and create new /not/ annotated tag with the same name, if
+-- tag was moved. Otherwise just delete old tag.
 rewriteTags :: Tag -> Either Sha Sha -> Sh ()
 rewriteTags t (Right newSha) = do
     liftIO . putStrLn $ "Move " ++ show t ++ " to " ++ show newSha
     run_ "git" ["tag", "-d", gitTag t]
     run_ "git" ["tag", gitTag t, sha newSha]
-rewriteTags t (Left oldSha) = liftIO . putStrLn $ "  => " ++ show t ++ " remains at " ++ show oldSha
+rewriteTags t (Left oldSha) = do
+    liftIO . putStrLn $ "  => Remove " ++ show t ++ ", which remains at " ++ show oldSha
+    run_ "git" ["tag", "-d", gitTag t]
 
 buildTagMap :: [Tag] -> T.Text -> [Tag]
 buildTagMap zm tx = either error (: zm)
