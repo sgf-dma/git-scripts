@@ -7,7 +7,7 @@ set -euf
 hook_names="applypatch-msg pre-applypatch post-applypatch pre-commit prepare-commit-msg commit-msg post-commit pre-rebase post-checkout post-merge pre-receive update post-receive post-update pre-auto-gc"
 # assuming the script is in a bin directory, one level into the repo
 git_toplevel="$(git rev-parse --show-toplevel)"
-git_hook_dir="$git_toplevel/.git/hooks"
+git_hook_dir="$(git rev-parse --git-dir)/hooks"
 hook_wrapper="$git_hook_dir/hooks-wrapper.sh"
 repo_hook_dir="$git_toplevel/git_hooks"
 
