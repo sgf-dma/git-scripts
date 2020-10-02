@@ -4,11 +4,11 @@ set -euf
 
 repo_url="$1"
 sync_url="$2"
-repo="$(basename "$repo_url" .git)"
+repo="$(basename "${repo_url##*:}" .git)"
 tmp_repo="git_$repo"
 
 echo "Will use '$repo_url' as 'origin' remote."
-echo "Will use '$sync_url' as 'sync' remote (_mirror_ everything)."
+echo "Will use '$sync_url' as 'sync' remote (_mirroring_ everything)."
 read -p "Continue? " x
 if [ "$x" != 'y' ]; then
     echo "Exit."
