@@ -5,6 +5,7 @@ set -euf
 remotes="$(git remote)"
 if echo "$remotes" | grep -q 'sync'; then
     git push --all sync
+    git push --tags sync
 else
     echo ">>>>> No sync remote defined." 1>&2
 fi
